@@ -12,6 +12,13 @@ class Pdf::TextExtractorTest < ActiveSupport::TestCase
     assert_match(/Trade Republic/i, pages.join("\n"))
   end
 
+  test "reads text only with the matching PDF password" do
+    encrypted = file_fixture("account_statements/password-protected.pdf").binread
+    assert_raises(PDF::Reader::EncryptedPDFError) { Pdf::TextExtractor.pages(encrypted) }
+    assert_raises(PDF::Reader::EncryptedPDFError) { Pdf::TextExtractor.pages(encrypted, password: "wrong") }
+    assert_includes Pdf::TextExtractor.pages(encrypted, password: "test-only").join, "Synthetic statement"
+  end
+
   test "stops after max_pages" do
     PDF::Reader.any_instance.stubs(:pages).returns(%w[one two three].map { |text| stub(text: text) })
 

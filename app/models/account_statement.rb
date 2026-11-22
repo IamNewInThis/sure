@@ -252,6 +252,23 @@ class AccountStatement < ApplicationRecord
     account.present? ? account.shared_with?(user) : self.class.statement_manager?(user)
   end
 
+  def pdf_password_retryable?
+    pdf? && %w[password_required filename_only].include?(sanitized_parser_output.to_h["pdf_detection"])
+  end
+
+  def read_protected_pdf!(password)
+    with_lock do
+      return unless pdf_password_retryable?
+
+      MetadataDetector.new(self, content: original_file.download, password: password).apply
+      if pdf_output["balance_readings"].present?
+        merge_pdf_output("edited_balances" => BALANCE_FIELDS.select { |field| self[field].present? })
+        derive_detected_balances
+      end
+      save!
+    end
+  end
+
   def manageable_by?(user)
     return false unless user&.family_id == family_id
 

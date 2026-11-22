@@ -37,6 +37,14 @@
       </div>
     </div>
 
+    <% if @can_manage_statement && @statement.pdf_password_retryable? %>
+      <%= styled_form_with url: unlock_account_statement_path(@statement), class: "space-y-3" do |form| %>
+        <%= form.password_field :pdf_password, label: t("account_statements.unlock.label"), required: true, autocomplete: "off" %>
+        <p class="text-sm text-secondary"><%= t("account_statements.unlock.hint") %></p>
+        <%= form.submit t("account_statements.unlock.submit") %>
+      <% end %>
+    <% end %>
+
     <div class="grid gap-4 lg:grid-cols-[1fr_22rem]">
       <div class="rounded-xl bg-container-inset p-4">
         <h3 class="text-sm font-medium text-primary mb-3"><%= t(".metadata_title") %></h3>

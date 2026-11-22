@@ -39,9 +39,10 @@ class AccountStatement::MetadataDetector
 
   attr_reader :statement, :content
 
-  def initialize(statement, content:)
+  def initialize(statement, content:, password: nil)
     @statement = statement
     @content = content
+    @password = password
   end
 
   def apply
@@ -132,7 +133,9 @@ class AccountStatement::MetadataDetector
     end
 
     def detect_from_pdf(output)
-      summary = AccountStatement::TextMetadataParser.parse(pdf_text)
+      text = pdf_text
+      output["pdf_detection"] = "readable" if @password
+      summary = AccountStatement::TextMetadataParser.parse(text)
       return false unless summary
 
       statement.period_start_on ||= summary.period_start_on
@@ -147,14 +150,23 @@ class AccountStatement::MetadataDetector
       output["pdf"] = { "balances_source" => nil, "balances_detected" => false }
       output["pdf"]["balance_readings"] = summary.balance_readings if summary.balance_readings.present?
       true
+    rescue PDF::Reader::EncryptedPDFError
+      raise if @password
+
+      output["pdf_detection"] = "password_required"
+      false
     end
 
     # Text of the first pages only: periods and balance summaries sit at the
     # top of a statement. Any reader failure leaves filename detection as the
     # fallback instead of failing the upload.
     def pdf_text
-      Pdf::TextExtractor.pages(content, max_pages: MAX_PDF_METADATA_PAGES).join("\n")
+      Pdf::TextExtractor.pages(content, max_pages: MAX_PDF_METADATA_PAGES, password: @password).join("\n")
+    rescue PDF::Reader::EncryptedPDFError
+      raise
     rescue StandardError => e
+      raise if @password
+
       Rails.logger.info("AccountStatement::MetadataDetector - PDF text unavailable: #{e.class}")
       ""
     end

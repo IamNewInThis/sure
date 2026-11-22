@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
 class AccountStatementsController < ApplicationController
-  before_action :set_statement, only: %i[show update destroy link unlink reject]
-  before_action :ensure_statement_manager!, only: %i[index create update destroy link unlink reject]
+  before_action :set_statement, only: %i[show update destroy link unlink reject unlock]
+  before_action :ensure_statement_manager!, only: %i[index create update destroy link unlink reject unlock]
 
   def index
     accessible_account_ids = Current.user.accessible_accounts.select(:id)
@@ -65,6 +65,22 @@ class AccountStatementsController < ApplicationController
 
     redirect_to redirect_after_create(account, created.first || duplicates.first),
                 flash_for_upload(created:, duplicates:, validation_errors:)
+  end
+
+  def unlock
+    return if @statement.account && !require_account_permission!(@statement.account)
+
+    password = params[:pdf_password]
+    unless password.is_a?(String) && password.present? && @statement.pdf_password_retryable?
+      return redirect_to account_statement_path(@statement), alert: t("account_statements.unlock.unavailable")
+    end
+
+    @statement.read_protected_pdf!(password)
+    redirect_to account_statement_path(@statement), notice: t("account_statements.unlock.success")
+  rescue PDF::Reader::EncryptedPDFError
+    redirect_to account_statement_path(@statement), alert: t("account_statements.unlock.failed")
+  rescue PDF::Reader::MalformedPDFError, PDF::Reader::UnsupportedFeatureError
+    redirect_to account_statement_path(@statement), alert: t("account_statements.unlock.unavailable")
   end
 
   def update
@@ -181,7 +197,9 @@ class AccountStatementsController < ApplicationController
     end
 
     def redirect_after_create(account, statement = nil)
-      if account
+      if statement&.sanitized_parser_output.to_h["pdf_detection"] == "password_required"
+        account_statement_path(statement)
+      elsif account
         account_path(account, tab: "statements")
       elsif statement
         account_statement_path(statement)

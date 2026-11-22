@@ -7,6 +7,26 @@ class AccountStatementsControllerTest < ActionDispatch::IntegrationTest
     @account = accounts(:depository)
   end
 
+  test "reads a protected PDF on retry and keeps the original encrypted" do
+    file = file_fixture("account_statements/password-protected.pdf")
+    post account_statements_url, params: {
+      account_statement: { account_id: @account.id, files: [ fixture_file_upload(file, "application/pdf") ] }
+    }
+    statement = @account.family.account_statements.find_by!(filename: file.basename.to_s)
+    assert_redirected_to account_statement_url(statement)
+    assert_equal "password_required", statement.sanitized_parser_output["pdf_detection"]
+
+    post unlock_account_statement_url(statement), params: { pdf_password: "incorrect" }
+    assert_equal I18n.t("account_statements.unlock.failed"), flash[:alert]
+    assert statement.reload.pdf_password_retryable?
+
+    post unlock_account_statement_url(statement), params: { pdf_password: "test-only" }
+    assert_equal I18n.t("account_statements.unlock.success"), flash[:notice]
+    refute statement.reload.pdf_password_retryable?
+    assert_equal file.binread, statement.original_file.download
+    refute_includes statement.attributes.to_json, "test-only"
+  end
+
   test "shows statement vault" do
     get account_statements_url
     assert_response :success

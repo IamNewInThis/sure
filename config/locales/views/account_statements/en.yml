@@ -1,6 +1,13 @@
 ---
 en:
   account_statements:
+    unlock:
+      label: PDF password
+      hint: If this statement requires a password, enter it to read the PDF locally. The password is used only once.
+      submit: Read statement
+      success: PDF read. Review the detected details.
+      failed: Could not open the PDF with this password. Try again.
+      unavailable: This PDF could not be processed.
     account_tab:
       coverage_title: Statement coverage
       coverage_description: Historical months backed by uploaded statements and balance checks.

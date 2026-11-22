@@ -1,6 +1,13 @@
 ---
 es:
   account_statements:
+    unlock:
+      label: Contraseña del PDF
+      hint: Si tu cartola tiene clave, ingrésala para leerla localmente. La clave se usa una sola vez.
+      submit: Leer cartola
+      success: Se leyó el PDF. Revisa los datos detectados.
+      failed: No se pudo abrir el PDF con esa clave. Vuelve a intentarlo.
+      unavailable: No se pudo procesar este PDF.
     account_tab:
       coverage_title: Cobertura de extractos
       coverage_description: Meses históricos respaldados por extractos subidos y comprobaciones de saldo.
